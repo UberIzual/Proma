@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Proma 是一个集成通用 AI Agent 的下一代人工智能软件，采用 Electron 桌面应用架构。
+Proma 是一个本地优先的 AI 应用工程，当前以 `Web 前端 + Bun/Hono 后端 + SSE 流式` 为主运行模式，Electron 为可选兼容形态。
 
 ## Monorepo 结构
 
@@ -22,63 +22,69 @@ Bun workspace monorepo：
 
 ```
 proma/
-├── packages/
-│   ├── core/       # AI Provider 适配器、代码高亮服务 (Shiki)
-│   ├── shared/     # 共享类型、IPC 通道常量、配置、Agent 工具匹配
-│   └── ui/         # 共享 UI 组件 (CodeBlock, MermaidBlock, useSmoothStream)
-└── apps/
-    └── electron/   # Electron 桌面应用
-        └── src/
-            ├── main/       # 主进程 + 服务层 (main/lib/)
-            ├── preload/    # IPC 上下文桥接
-            └── renderer/   # React UI (Vite + Tailwind + ShadcnUI)
+├── apps/
+│   ├── web/        # Web 前端（React + Vite）
+│   ├── server/     # Web 后端（Bun + Hono + SSE）
+│   └── electron/   # 可选桌面兼容形态
+└── packages/
+    ├── core/       # AI Provider 适配器、流式读取、文档处理
+    ├── shared/     # 共享类型、常量、配置、Agent 工具匹配
+    └── ui/         # 共享 UI 组件 (CodeBlock, MermaidBlock, useSmoothStream)
 ```
 
-**包命名规范**：`@proma/*` 作用域（`@proma/core`、`@proma/shared`、`@proma/ui`、`@proma/electron`）
+**包命名规范**：`@proma/*` 作用域（`@proma/core`、`@proma/shared`、`@proma/ui`、`@proma/web`、`@proma/server`、`@proma/electron`）
 
 **依赖管理**：package.json 中使用 `workspace:*` 引用内部包
 
 ## 常用命令
 
 ```bash
-# 开发模式（推荐 - 自动启动 Vite + Electron + 热重载）
+# 安装依赖
+bun install
+
+# 推荐：同时启动 Web + Server
+bun run dev:all
+
+# 仅启动 Web（http://localhost:5173）
+bun run dev:web
+
+# 仅启动 Server（http://localhost:3001）
+bun run dev:server
+
+# 可选：Electron 兼容模式
 bun run dev
 
-# 手动开发模式（调试时更稳定）
-# 终端 1: cd apps/electron && bun run dev:vite
-# 终端 2: cd apps/electron && bun run dev:electron
-
-# 构建并运行
-bun run electron:start
-
-# 仅构建
-bun run electron:build
-
-# 类型检查（所有包）
+# 类型检查（全仓）
 bun run typecheck
 
-# 单包类型检查
-cd packages/core && bun run typecheck
+# 构建（全仓）
+bun run build
 
 # 测试
 bun test
-
-# 打包分发
-cd apps/electron
-bun run dist:mac      # macOS
-bun run dist:win      # Windows
-bun run dist:linux    # Linux
-bun run dist:fast     # 当前架构快速打包
 ```
 
-### Electron 构建脚本（`apps/electron/` 目录下）
+### Electron（可选兼容模式）命令（`apps/electron/`）
 
 ```bash
+# 构建并启动 Electron
+bun run electron:start
+
+# 仅构建 Electron
+bun run electron:build
+
+# Electron 构建细分脚本
 bun run build:main        # esbuild → dist/main.cjs
 bun run build:preload     # esbuild → dist/preload.cjs
 bun run build:renderer    # Vite → dist/renderer/
 bun run build:resources   # 复制 resources/ 到 dist/
 bun run generate:icons    # 生成应用图标
+
+# 打包分发
+bun run dist:mac
+bun run dist:win
+bun run dist:linux
+bun run dist:fast
 ```
 
 ## 运行时环境
@@ -92,34 +98,44 @@ bun run generate:icons    # 生成应用图标
 
 ## 核心架构
 
-### IPC 通信模式（最重要的架构模式）
+### Web 远程调用链路（最重要的架构模式）
+
+Web 模式通过 HTTP/SSE 远程调用后端：
+
+1. **类型 & 常量**：`@proma/shared` 定义请求/响应与事件类型
+2. **前端桥接**：`apps/web/src/lib/electron-bridge.ts` 将 `window.electronAPI.*` 映射为 `fetch('/api/...')`
+3. **代理转发**：`apps/web/vite.config.ts` 将 `/api` 代理到 `http://localhost:3001`
+4. **后端处理**：`apps/server/src/routes/*` 路由调用 `apps/server/src/services/*`
+5. **SSE 流式返回**：`/api/chat/send` 与 `/api/agent/send` 通过 `streamSSE` 推送增量事件
+6. **前端消费**：Web 侧用 `ReadableStream` 解析 SSE 并写入 Jotai 状态
+
+### Electron IPC 兼容链路（仅 Electron 模式）
 
 类型定义 → 主进程处理 → Preload 桥接 → 渲染进程调用：
 
-1. **类型 & 常量**：`@proma/shared` 定义 IPC 通道名称常量和请求/响应类型
-2. **主进程处理**：`main/ipc.ts` 注册 `ipcMain.handle()` 处理器，调用 `main/lib/` 服务
-3. **Preload 桥接**：`preload/index.ts` 通过 `contextBridge.exposeInMainWorld` 暴露类型安全的 API
-4. **渲染进程**：通过 `window.electronAPI.*` 调用，Jotai atoms 中封装调用逻辑
+1. **类型 & 常量**：`@proma/shared`
+2. **主进程处理**：`apps/electron/src/main/ipc.ts`
+3. **Preload 桥接**：`apps/electron/src/preload/index.ts`
+4. **渲染进程调用**：`window.electronAPI.*`
 
-添加新 IPC 通道时，需要同步修改这四个位置。
-
-### 主进程服务层（`main/lib/`）
+### Web 后端服务层（`apps/server/src/services/`）
 
 | 服务 | 职责 |
 |------|------|
-| `channel-manager.ts` | 模型供应商 CRUD、API Key AES-256-GCM 加密（Electron safeStorage）、连接测试、模型获取 |
+| `channel-manager.ts` | 模型供应商 CRUD、API Key AES-256-GCM 加密、连接测试、模型获取 |
 | `conversation-manager.ts` | 对话 CRUD、JSONL 消息存储、置顶、上下文分割 |
-| `chat-service.ts` | AI 流式调用编排、Provider 适配器集成、消息持久化、AbortController |
 | `agent-service.ts` | Agent SDK 调用编排、流式事件转换与推送、AbortController |
 | `agent-session-manager.ts` | Agent 会话 CRUD、JSONL 消息存储 |
 | `agent-prompt-builder.ts` | Agent 系统提示词构建（注入工作区上下文） |
 | `agent-workspace-manager.ts` | 工作区管理、MCP Server 配置、Skills 配置 |
-| `attachment-service.ts` | 附件存储/读取/删除、文件对话框 |
+| `attachment-service.ts` | 附件存储/读取/删除、上传文件处理 |
 | `document-parser.ts` | 文档文本提取（PDF/Office/文本文件） |
 | `user-profile-service.ts` | 用户档案持久化 |
-| `settings-service.ts` | 应用设置持久化（主题等） |
-| `config-paths.ts` | `~/.proma/` 目录路径管理 |
-| `runtime-init.ts` | Bun/Git 运行时检测（`bun-finder.ts`、`git-detector.ts`、`shell-env.ts`） |
+| `settings-service.ts` | 应用设置持久化（主题、默认配置等） |
+| `proxy-fetch.ts` | 统一代理请求出口 |
+| `proxy-settings-service.ts` | 系统/手动代理配置读取与生效策略 |
+
+补充：`apps/server/src/lib/config-paths.ts` 负责 `~/.proma/` 路径管理。
 
 ### AI Provider 适配器（`packages/core/src/providers/`）
 
@@ -132,7 +148,7 @@ bun run generate:icons    # 生成应用图标
 - `sse-reader.ts`：通用 SSE 流读取器（fetch + ReadableStream）
 - 多模态支持：图片（各 Provider 格式不同）、文档（提取文本注入 `<file>` XML 标签）
 
-### Jotai 状态管理（`renderer/atoms/`）
+### Jotai 状态管理（`apps/web/src/atoms/`）
 
 | Atom 文件 | 管理的状态 |
 |-----------|-----------|
@@ -145,7 +161,7 @@ bun run generate:icons    # 生成应用图标
 | `user-profile.ts` | 用户档案（姓名 + 头像） |
 | `updater.ts` | 自动更新状态（检查/下载/安装），优雅降级（updater 不可用时保持 idle） |
 
-### 渲染进程组件架构（`renderer/components/`）
+### Web 组件架构（`apps/web/src/components/`）
 
 - **`app-shell/`**：三面板布局（LeftSidebar | NavigatorPanel | MainContentPanel），侧边栏含模式切换、置顶对话、日期分组列表、流式指示器
 - **`chat/`**：聊天核心 — ChatView（消息加载/流式订阅）、ChatHeader（模型选择/上下文设置）、ChatInput（Tiptap 富文本编辑器）、ChatMessages（消息列表/自动滚动）、ParallelChatMessages（并排模式）
@@ -159,7 +175,7 @@ bun run generate:icons    # 生成应用图标
 
 ```
 ~/.proma/
-├── channels.json           # 模型供应商配置（API Key 经 safeStorage 加密）
+├── channels.json           # 模型供应商配置（API Key 经 AES-256-GCM 加密）
 ├── conversations.json      # 对话索引（元数据，轻量）
 ├── conversations/          # 消息存储
 │   └── {uuid}.jsonl        # 每对话一个 JSONL 文件，追加写入
@@ -180,10 +196,10 @@ bun run generate:icons    # 生成应用图标
 
 ## 构建工具
 
-- **主进程/Preload**：esbuild (`--bundle --platform=node --format=cjs --external:electron --external:@anthropic-ai/claude-agent-sdk`)
-- **渲染进程**：Vite + React 插件 + Tailwind CSS + HMR
-- **开发热重载**：渲染进程 Vite HMR 即时生效；主进程/Preload 通过 electronmon 监听 dist 文件变化自动重启
-- **打包分发**：electron-builder（配置见 `electron-builder.yml`）
+- **Web 前端**：Vite + React + Tailwind CSS（HMR）
+- **Web 后端**：Bun Runtime + Hono 路由，SSE 长连接（`idleTimeout: 255`）
+- **Provider 层**：`@proma/core` 统一适配器 + SSE 读取器
+- **Electron（可选）**：主进程/Preload 使用 esbuild，桌面打包使用 electron-builder
 
 ## 代码风格
 
@@ -191,11 +207,11 @@ bun run generate:icons    # 生成应用图标
 - 对象类型优先使用 interface 而不是 type
 - 尽可能使用 `import type` 进行仅类型导入
 - 注释和日志采用中文，保留专业术语
-- **路径别名**：`@/` → `apps/electron/src/renderer/`
+- **路径别名**：`@/` → 当前应用 `src/`（例如 `apps/web/src/`）
 
 ## TypeScript 配置
 
-- Module: `"Preserve"` + `"moduleResolution": "bundler"`
+- Module: 各应用采用 ES Module（`"module": "ESNext"` / `"Preserve"`）+ `"moduleResolution": "bundler"`
 - JSX: `"react-jsx"`，严格模式启用，Target: ESNext
 - 所有包 `"type": "module"`，导入时使用 `.ts` 扩展名
 
@@ -210,9 +226,10 @@ bun run generate:icons    # 生成应用图标
 ### 核心流程
 
 ```
-用户输入 → agent-service.ts (SDK query) → SDK SDKMessage 流
-→ convertSDKMessage() → AgentEvent[] → webContents.send()
-→ agent-atoms.ts (applyAgentEvent) → React UI
+用户输入 → apps/web (POST /api/agent/send)
+→ apps/server/src/services/agent-service.ts (SDK query) → SDKMessage 流
+→ convertSDKMessage() → AgentEvent[] → SSE(event/complete/error/title-updated)
+→ apps/web/src/atoms/agent-atoms.ts (applyAgentEvent) → React UI
 ```
 
 ### 关键设计
@@ -229,7 +246,7 @@ bun run generate:icons    # 生成应用图标
 - `AgentSessionMeta`：会话元数据（id / title / channelId / workspaceId）
 - `AgentMessage`：持久化消息（role + content blocks）
 - `AgentSendInput`：发送请求输入
-- `AGENT_IPC_CHANNELS`：Agent 相关 IPC 通道常量
+- Agent SSE 事件：`event` / `complete` / `error` / `title-updated`
 - `WorkspaceCapabilities`：工作区能力（MCP Server 列表 + Skills 列表）
 
 ## 创作参考

@@ -1,81 +1,76 @@
 # Proma
 
-Next-generation AI desktop app with integrated agents. Local-first, multi-provider, fully open source.
+Proma is a local-first AI application stack that primarily runs as `Web frontend + Bun/Hono backend`, with chat and agent streaming over SSE.
 
 [中文](./README.md)
 
-![Proma Poster](https://img.erlich.fun/personal-blog/uPic/pb.png)
-
-### Commercial Version Running in Parallel
-Proma also offers a commercial version. If you need **cloud features** | **stable and reliable API** | **cost-effective subscription plans** | **simple user experience**, you're welcome to support the commercial version of Proma: https://proma.cool/download
-
-The core vision of Proma is not to replace any particular software. Currently, only the infrastructure of Proma has been implemented. Going forward, Proma will continue to build multi-agent collaboration (personal and team), agent connections with external services, Tools and Skills consolidation, and the ability to proactively provide software and suggestions based on user understanding and memory. Proma is evolving rapidly with the help of VibeCoding tools. PRs are welcome!
-
-## Screenshots
-
-Chat mode with multi-model switching and file attachment support.
-![Proma Chat Mode](https://img.erlich.fun/personal-blog/uPic/tBXRKI.png)
-Agent mode with general-purpose agent capabilities. Supports the full Claude series, MiniMax M2.1, Kimi K2.5, Zhipu GLM, and third-party model providers. Elegant, clean, smooth, and confident streaming output.
-![Proma Agent Mode](https://img.erlich.fun/personal-blog/uPic/3ZHWyA.png)
-Built-in Brainstorming and office suite Skills with MCP support. Automatically helps you find and install Skills through conversation.
-![Proma Default Skills and Mcp](https://img.erlich.fun/personal-blog/uPic/PNBOSt.png)
-Full-protocol LLM model provider support for all domestic and international providers, configured via Base URL + API Key.
-![Proma Mutili Provider Support](https://img.erlich.fun/personal-blog/uPic/uPPazd.png)
-
 ## Features
 
-- **Multi-Provider Support** — Anthropic, OpenAI, Google, DeepSeek, MiniMax, Kimi, Zhipu GLM, and any OpenAI-compatible endpoint
-- **AI Agent Mode** — Autonomous general agent powered by Claude Agent SDK
-- **Streaming & Thinking** — Real-time streaming output with extended thinking visualization
-- **Rich Rendering** — Mermaid diagrams, syntax-highlighted code blocks, Markdown
-- **Attachments & Documents** — Upload images and parse PDF/Office/text files in conversations
-- **Local-First** — All data stored locally in `~/.proma/`, no database, fully portable
-- **Themes** — Light and dark mode with system preference detection
+- Model provider management: Anthropic, OpenAI, Google, DeepSeek, MiniMax, Kimi, Zhipu GLM, and OpenAI-compatible endpoints
+- Chat mode: multi-turn conversation, streaming responses, thinking visualization, model switching
+- Agent mode: general agent workflow powered by Claude Agent SDK
+- Rich rendering: Markdown, syntax-highlighted code blocks, Mermaid diagrams
+- Attachments and document parsing: image and common document formats (PDF/Office/text)
+- Local data storage: settings, conversations, and messages stored under `~/.proma/`
+- Theme system: light/dark theme with system preference support
 
-## Getting Started
+## Architecture
 
-Download the latest release for your platform:
+### Primary runtime flow (Web + SSE)
 
-**[Download Proma](https://github.com/ErlichLiu/Proma/releases)**
+- Frontend: `apps/web` (Vite, default port `5173`)
+- Backend: `apps/server` (Bun + Hono, default port `3001`)
+- API proxy: Vite proxies `/api` to `http://localhost:3001`
+- Streaming endpoints:
+  - Chat: `POST /api/chat/send`
+  - Agent: `POST /api/agent/send`
+- Frontend consumes SSE chunks via `fetch + ReadableStream` and updates UI incrementally
 
-## Configuration
+### Monorepo layout
 
-### Adding a Model Provider
+```text
+proma/
+├── apps/
+│   ├── web/        # Web frontend (React + Vite)
+│   ├── server/     # Web backend (Bun + Hono + SSE)
+│   └── electron/   # Optional desktop-compatible mode
+└── packages/
+    ├── core/       # Provider adapters, streaming and document capabilities
+    ├── shared/     # Shared types, constants, config, and protocol contracts
+    └── ui/         # Shared UI components and interaction primitives
+```
 
-Go to **Settings > Model Providers**, click **Add Model Provider**, select a provider, and enter your API Key. Proma will auto-fill the correct API endpoint. Click **Test Connection** to verify, then **Fetch Models** to load available models.
+### Core modules
 
-### Agent Mode (Anthropic Only)
+- Web bridge: `apps/web/src/lib/electron-bridge.ts` (HTTP/SSE-compatible client layer)
+- Server routes: `apps/server/src/routes/*` (`channels`/`conversations`/`chat`/`agent`/`attachments`/`settings`)
+- Server services: `apps/server/src/services/*` (providers, sessions, attachments, document parsing, agent orchestration)
+- Provider abstraction: `packages/core/src/providers/*` (`ProviderAdapter` + shared SSE reader)
 
-Agent mode requires an **Anthropic** model provider. After adding one, go to **Settings > Agent** to select your Anthropic model provider and preferred model (Claude Sonnet 4 / Opus 4 recommended). The agent uses [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk) under the hood.
+## Run and Develop
 
-### Special Provider Endpoints
+```bash
+# Install dependencies
+bun install
 
-MiniMax, Kimi (Moonshot), and Zhipu GLM use dedicated API endpoints — these are auto-configured when you select the provider. All three support their **programming membership plans** for API access:
+# Recommended: start Web + Server together
+bun run dev:all
 
-| Provider | Chat Mode | Agent Mode | Note |
-|----------|----------|----------|------|
-| MiniMax | `https://api.minimaxi.com/v1` | `https://api.minimaxi.com/anthropic`| Supports MiniMax Pro membership |
-| Kimi | `https://api.moonshot.cn/v1` | `https://api.moonshot.cn/anthropic`| Supports Moonshot developer plan |
-| Zhipu GLM | `https://open.bigmodel.cn/api/paas/v4` | `https://open.bigmodel.cn/api/anthropic`| Supports Zhipu developer plan |
+# Start Web only
+bun run dev:web
 
-## Tech Stack
+# Start Server only
+bun run dev:server
 
-- **Runtime** — Bun
-- **Framework** — Electron + React 18
-- **State** — Jotai
-- **Styling** — Tailwind CSS + shadcn/ui
-- **Build** — Vite (renderer) + esbuild (main/preload)
-- **Language** — TypeScript
+# Optional: Electron-compatible mode
+bun run dev
 
-## Credits
+# Type check all packages/apps
+bun run typecheck
 
-Proma is built on the shoulders of these great projects:
-
-- [Shiki](https://shiki.style/) — Syntax highlighting
-- [Beautiful Mermaid](https://github.com/lukilabs/beautiful-mermaid) — Diagram rendering
-- [Cherry Studio](https://github.com/CherryHQ/cherry-studio) — Inspiration for multi-provider desktop AI
-- [Lobe Icons](https://github.com/lobehub/lobe-icons) — AI/LLM brand icon set
-- [Craft Agents OSS](https://github.com/lukilabs/craft-agents-oss) — Agent SDK integration patterns
+# Build all packages/apps
+bun run build
+```
 
 ## License
 
