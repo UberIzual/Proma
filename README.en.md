@@ -15,11 +15,11 @@ The core vision of Proma is not to replace any particular software. Currently, o
 
 Chat mode with multi-model switching and file attachment support.
 ![Proma Chat Mode](https://img.erlich.fun/personal-blog/uPic/tBXRKI.png)
-Agent mode with general-purpose agent capabilities. Supports the full Claude series, MiniMax M2.1, Kimi K2.5, Zhipu GLM, and third-party channels. Elegant, clean, smooth, and confident streaming output.
+Agent mode with general-purpose agent capabilities. Supports the full Claude series, MiniMax M2.1, Kimi K2.5, Zhipu GLM, and third-party model providers. Elegant, clean, smooth, and confident streaming output.
 ![Proma Agent Mode](https://img.erlich.fun/personal-blog/uPic/3ZHWyA.png)
 Built-in Brainstorming and office suite Skills with MCP support. Automatically helps you find and install Skills through conversation.
 ![Proma Default Skills and Mcp](https://img.erlich.fun/personal-blog/uPic/PNBOSt.png)
-Full-protocol LLM channel support for all domestic and international providers, configured via Base URL + API Key.
+Full-protocol LLM model provider support for all domestic and international providers, configured via Base URL + API Key.
 ![Proma Mutili Provider Support](https://img.erlich.fun/personal-blog/uPic/uPPazd.png)
 
 ## Features
@@ -40,13 +40,13 @@ Download the latest release for your platform:
 
 ## Configuration
 
-### Adding a Channel
+### Adding a Model Provider
 
-Go to **Settings > Channels**, click **Add Channel**, select a provider, and enter your API Key. Proma will auto-fill the correct API endpoint. Click **Test Connection** to verify, then **Fetch Models** to load available models.
+Go to **Settings > Model Providers**, click **Add Model Provider**, select a provider, and enter your API Key. Proma will auto-fill the correct API endpoint. Click **Test Connection** to verify, then **Fetch Models** to load available models.
 
 ### Agent Mode (Anthropic Only)
 
-Agent mode requires an **Anthropic** channel. After adding one, go to **Settings > Agent** to select your Anthropic channel and preferred model (Claude Sonnet 4 / Opus 4 recommended). The agent uses [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk) under the hood.
+Agent mode requires an **Anthropic** model provider. After adding one, go to **Settings > Agent** to select your Anthropic model provider and preferred model (Claude Sonnet 4 / Opus 4 recommended). The agent uses [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk) under the hood.
 
 ### Special Provider Endpoints
 

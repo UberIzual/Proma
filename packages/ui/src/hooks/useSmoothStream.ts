@@ -29,14 +29,30 @@ interface UseSmoothStreamReturn {
   displayedContent: string
 }
 
-/** 多语言字符分割器（正确处理中文、日文等多字节字符） */
-const segmenter = new Intl.Segmenter(
-  ['en-US', 'zh-CN', 'zh-TW', 'ja-JP', 'ko-KR', 'de-DE', 'fr-FR', 'es-ES', 'pt-PT', 'ru-RU'],
-)
-
 /** 用 Intl.Segmenter 将文本拆分为字符数组 */
 function segmentText(text: string): string[] {
-  return Array.from(segmenter.segment(text)).map((s) => s.segment)
+  // 降级方案：某些环境可能不支持 Intl.Segmenter
+  if (typeof Intl.Segmenter !== 'undefined') {
+    try {
+      const segmenter = new Intl.Segmenter([
+        'en-US',
+        'zh-CN',
+        'zh-TW',
+        'ja-JP',
+        'ko-KR',
+        'de-DE',
+        'fr-FR',
+        'es-ES',
+        'pt-PT',
+        'ru-RU',
+      ])
+      return Array.from(segmenter.segment(text)).map((s) => s.segment)
+    } catch {
+      // 降级处理
+    }
+  }
+  // 降级：直接展开为字符数组
+  return [...text]
 }
 
 /**
@@ -70,11 +86,15 @@ export function useSmoothStream({
   const displayedRef = useRef(content)
   // 上一次收到的完整内容（用于计算 delta）
   const prevContentRef = useRef(content)
+  // content 的 ref，确保流结束时获取最新值
+  const contentRef = useRef(content)
   // 上次渲染时间
   const lastRenderTimeRef = useRef(0)
   // 流是否结束
   const streamDoneRef = useRef(!isStreaming)
 
+  // 同步 content 到 ref
+  contentRef.current = content
   // 同步 streamDone 状态
   streamDoneRef.current = !isStreaming
 
@@ -106,8 +126,10 @@ export function useSmoothStream({
   }, [content])
 
   // 非流式状态时，直接显示完整内容（历史消息、编辑后的消息等）
+  // 使用 contentRef 确保获取最新的 content 值
   useEffect(() => {
     if (!isStreaming) {
+      const finalContent = contentRef.current
       // 如果队列还有剩余，一次性输出
       if (chunkQueueRef.current.length > 0) {
         displayedRef.current += chunkQueueRef.current.join('')
@@ -115,12 +137,13 @@ export function useSmoothStream({
         setDisplayedContent(displayedRef.current)
       }
       // 确保显示内容与实际内容一致
-      if (displayedRef.current !== content) {
-        displayedRef.current = content
-        setDisplayedContent(content)
+      if (displayedRef.current !== finalContent) {
+        console.log('[useSmoothStream] 流结束，同步最终内容, 显示长度:', displayedRef.current.length, ', 实际长度:', finalContent.length)
+        displayedRef.current = finalContent
+        setDisplayedContent(finalContent)
       }
     }
-  }, [isStreaming, content])
+  }, [isStreaming]) // 移除 content 依赖，通过 ref 获取最新值
 
   // 渲染循环
   const renderLoop = useCallback((currentTime: number) => {

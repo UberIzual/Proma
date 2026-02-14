@@ -2,7 +2,7 @@
  * 代理 Fetch 工具
  *
  * 基于 undici ProxyAgent 创建支持 HTTP 代理的 fetch 函数。
- * 用于渠道配置了代理地址时，让 AI API 请求走指定代理。
+ * 用于模型供应商配置了代理地址时，让 AI API 请求走指定代理。
  */
 
 import { ProxyAgent, fetch as undiciFetch } from 'undici'

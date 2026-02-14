@@ -68,7 +68,7 @@ function ThemeInitializer(): null {
 /**
  * Agent 设置初始化组件
  *
- * 从主进程加载 Agent 渠道/模型设置并写入 atoms。
+ * 从主进程加载 Agent 默认供应商/模型设置并写入 atoms。
  */
 function AgentSettingsInitializer(): null {
   const setAgentChannelId = useSetAtom(agentChannelIdAtom)

@@ -72,30 +72,30 @@ export interface ElectronAPI {
   /** 在系统默认浏览器中打开外部链接 */
   openExternal: (url: string) => Promise<void>
 
-  // ===== 渠道管理相关 =====
+  // ===== 模型供应商相关 =====
 
-  /** 获取所有渠道列表（apiKey 保持加密态） */
+  /** 获取所有模型供应商列表（apiKey 保持加密态） */
   listChannels: () => Promise<Channel[]>
 
-  /** 创建渠道（apiKey 为明文，主进程加密） */
+  /** 创建模型供应商（apiKey 为明文，主进程加密） */
   createChannel: (input: ChannelCreateInput) => Promise<Channel>
 
-  /** 更新渠道 */
+  /** 更新模型供应商 */
   updateChannel: (id: string, input: ChannelUpdateInput) => Promise<Channel>
 
-  /** 删除渠道 */
+  /** 删除模型供应商 */
   deleteChannel: (id: string) => Promise<void>
 
   /** 解密获取明文 API Key（仅在用户查看时调用） */
   decryptApiKey: (channelId: string) => Promise<string>
 
-  /** 测试渠道连接 */
+  /** 测试模型供应商连接 */
   testChannel: (channelId: string) => Promise<ChannelTestResult>
 
-  /** 直接测试连接（无需已保存渠道，传入明文凭证） */
+  /** 直接测试连接（无需已保存模型供应商，传入明文凭证） */
   testChannelDirect: (input: FetchModelsInput) => Promise<ChannelTestResult>
 
-  /** 从供应商拉取可用模型列表（直接传入凭证，无需已保存渠道） */
+  /** 从供应商拉取可用模型列表（直接传入凭证，无需已保存模型供应商） */
   fetchModels: (input: FetchModelsInput) => Promise<FetchModelsResult>
 
   // ===== 对话管理相关 =====
@@ -115,7 +115,7 @@ export interface ElectronAPI {
   /** 更新对话标题 */
   updateConversationTitle: (id: string, title: string) => Promise<ConversationMeta>
 
-  /** 更新对话使用的模型/渠道 */
+  /** 更新对话使用的模型/模型供应商 */
   updateConversationModel: (id: string, modelId: string, channelId: string) => Promise<ConversationMeta>
 
   /** 删除对话 */
@@ -356,7 +356,7 @@ const electronAPI: ElectronAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url)
   },
 
-  // 渠道管理
+  // 模型供应商
   listChannels: () => {
     return ipcRenderer.invoke(CHANNEL_IPC_CHANNELS.LIST)
   },

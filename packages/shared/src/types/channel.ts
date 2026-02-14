@@ -1,7 +1,7 @@
 /**
- * 渠道（Channel）相关类型定义
+ * 模型供应商（Channel）相关类型定义
  *
- * 渠道是用户配置的 AI 供应商连接，包含 API Key、模型列表等信息。
+ * 模型供应商是用户配置的 AI 供应商连接，包含 API Key、模型列表等信息。
  * API Key 使用 Electron safeStorage 加密后存储在本地配置文件中。
  */
 
@@ -53,7 +53,7 @@ export const PROVIDER_LABELS: Record<ProviderType, string> = {
 }
 
 /**
- * 渠道中的模型配置
+ * 模型供应商中的模型配置
  */
 export interface ChannelModel {
   /** 模型唯一标识（如 claude-sonnet-4-5-20250929） */
@@ -65,14 +65,14 @@ export interface ChannelModel {
 }
 
 /**
- * 渠道配置
+ * 模型供应商配置
  *
  * 存储在 ~/.proma/channels.json 中，apiKey 字段为加密后的 base64 字符串
  */
 export interface Channel {
-  /** 渠道唯一标识 */
+  /** 模型供应商唯一标识 */
   id: string
-  /** 渠道名称（用户自定义） */
+  /** 模型供应商名称（用户自定义） */
   name: string
   /** AI 供应商类型 */
   provider: ProviderType
@@ -91,7 +91,7 @@ export interface Channel {
 }
 
 /**
- * 创建渠道时的输入数据（apiKey 为明文）
+ * 创建模型供应商时的输入数据（apiKey 为明文）
  */
 export interface ChannelCreateInput {
   name: string
@@ -104,7 +104,7 @@ export interface ChannelCreateInput {
 }
 
 /**
- * 更新渠道时的输入数据（所有字段可选）
+ * 更新模型供应商时的输入数据（所有字段可选）
  */
 export interface ChannelUpdateInput {
   name?: string
@@ -117,12 +117,12 @@ export interface ChannelUpdateInput {
 }
 
 /**
- * 渠道配置文件格式
+ * 模型供应商配置文件格式
  */
 export interface ChannelsConfig {
   /** 配置版本号 */
   version: number
-  /** 渠道列表 */
+  /** 模型供应商列表 */
   channels: Channel[]
 }
 
@@ -137,7 +137,7 @@ export interface ChannelTestResult {
 }
 
 /**
- * 拉取模型的输入参数（无需已保存的渠道，直接传入凭证）
+ * 拉取模型的输入参数（无需已保存的模型供应商，直接传入凭证）
  */
 export interface FetchModelsInput {
   provider: ProviderType
@@ -159,23 +159,23 @@ export interface FetchModelsResult {
 }
 
 /**
- * 渠道相关 IPC 通道常量
+ * 模型供应商相关 IPC 通道常量
  */
 export const CHANNEL_IPC_CHANNELS = {
-  /** 获取所有渠道列表 */
+  /** 获取所有模型供应商列表 */
   LIST: 'channel:list',
-  /** 创建渠道 */
+  /** 创建模型供应商 */
   CREATE: 'channel:create',
-  /** 更新渠道 */
+  /** 更新模型供应商 */
   UPDATE: 'channel:update',
-  /** 删除渠道 */
+  /** 删除模型供应商 */
   DELETE: 'channel:delete',
   /** 解密获取明文 API Key */
   DECRYPT_KEY: 'channel:decrypt-key',
-  /** 测试渠道连接 */
+  /** 测试模型供应商连接 */
   TEST: 'channel:test',
   /** 从供应商拉取可用模型列表 */
   FETCH_MODELS: 'channel:fetch-models',
-  /** 直接测试连接（无需已保存渠道，传入明文凭证） */
+  /** 直接测试连接（无需已保存模型供应商，传入明文凭证） */
   TEST_DIRECT: 'channel:test-direct',
 } as const

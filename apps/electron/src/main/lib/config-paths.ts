@@ -29,7 +29,7 @@ export function getConfigDir(): string {
 }
 
 /**
- * 获取渠道配置文件路径
+ * 获取模型供应商配置文件路径
  *
  * @returns ~/.proma/channels.json
  */

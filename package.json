@@ -10,9 +10,18 @@
   ],
   "scripts": {
     "dev": "bun run --filter='@proma/electron' dev",
+    "dev:server": "bun run --filter='@proma/server' dev",
+    "dev:web": "bun run --filter='@proma/web' dev",
+    "dev:all": "concurrently -k -n server,web -c blue,green \"bun run dev:server\" \"bun run dev:web\"",
+    "dev:all:raw": "concurrently --raw -k -n server,web \"bun run dev:server\" \"bun run dev:web\"",
+    "dev:full": "concurrently -k -n server,electron,web -c blue,green,yellow \"bun run dev:server\" \"bun run dev\" \"bun run dev:web\"",
     "electron:dev": "bun run --filter='@proma/electron' dev",
     "electron:build": "bun run --filter='@proma/electron' build",
     "electron:start": "bun run --filter='@proma/electron' start",
+    "server:start": "bun run --filter='@proma/server' start",
+    "server:build": "bun run --filter='@proma/server' build",
+    "web:build": "bun run --filter='@proma/web' build",
+    "web:preview": "bun run --filter='@proma/web' preview",
     "build": "bun run --filter='*' build",
     "typecheck": "bun run --filter='*' typecheck"
   },
@@ -21,6 +30,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "concurrently": "^9.2.1",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {

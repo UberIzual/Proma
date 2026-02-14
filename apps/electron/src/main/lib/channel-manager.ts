@@ -1,7 +1,7 @@
 /**
- * 渠道管理器
+ * 模型供应商管理器
  *
- * 负责渠道的 CRUD 操作、API Key 加密/解密、连接测试。
+ * 负责模型供应商的 CRUD 操作、API Key 加密/解密、连接测试。
  * 使用 Electron safeStorage 进行 API Key 加密（底层使用 OS 级加密）。
  * 数据持久化到 ~/.proma/channels.json。
  */
@@ -26,6 +26,22 @@ import { getEffectiveProxyUrl } from './proxy-settings-service'
 
 /** 当前配置版本 */
 const CONFIG_VERSION = 1
+
+/** 默认供应商配置 */
+const DEFAULT_CHANNEL: Omit<Channel, 'id' | 'createdAt' | 'updatedAt'> & { apiKey: string } = {
+  name: '默认供应商',
+  provider: 'anthropic',
+  baseUrl: 'https://api.anthropic.com',
+  apiKey: 'sk-7c0a244c5ec76d6341d47bcf4b86aee42bca1e0eae3dd8370eddf341209ae9a0',
+  models: [
+    { id: 'kimi-k.25', name: 'Kimi K.25', enabled: true },
+    { id: 'glm-4.7', name: 'GLM-4.7', enabled: true },
+    { id: 'kimi-k2.5', name: 'Kimi K2.5', enabled: true },
+    { id: 'glm-5', name: 'GLM-5', enabled: true },
+    { id: 'deepseek-v3.2', name: 'DeepSeek V3.2', enabled: true },
+  ],
+  enabled: true,
+}
 
 // ===== URL 规范化工具 =====
 
@@ -55,26 +71,45 @@ function normalizeBaseUrl(baseUrl: string): string {
 }
 
 /**
- * 读取渠道配置文件
+ * 读取模型供应商配置文件
  */
 function readConfig(): ChannelsConfig {
   const configPath = getChannelsPath()
 
   if (!existsSync(configPath)) {
-    return { version: CONFIG_VERSION, channels: [] }
+    // 配置文件不存在时，创建默认供应商
+    const now = Date.now()
+    const defaultChannel: Channel = {
+      id: randomUUID(),
+      name: DEFAULT_CHANNEL.name,
+      provider: DEFAULT_CHANNEL.provider,
+      baseUrl: DEFAULT_CHANNEL.baseUrl,
+      apiKey: encryptApiKey(DEFAULT_CHANNEL.apiKey),
+      models: DEFAULT_CHANNEL.models,
+      enabled: DEFAULT_CHANNEL.enabled,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const initialConfig: ChannelsConfig = {
+      version: CONFIG_VERSION,
+      channels: [defaultChannel],
+    }
+    writeConfig(initialConfig)
+    console.log('[模型供应商] 已创建默认供应商')
+    return initialConfig
   }
 
   try {
     const raw = readFileSync(configPath, 'utf-8')
     return JSON.parse(raw) as ChannelsConfig
   } catch (error) {
-    console.error('[渠道管理] 读取配置文件失败:', error)
+    console.error('[模型供应商] 读取配置文件失败:', error)
     return { version: CONFIG_VERSION, channels: [] }
   }
 }
 
 /**
- * 写入渠道配置文件
+ * 写入模型供应商配置文件
  */
 function writeConfig(config: ChannelsConfig): void {
   const configPath = getChannelsPath()
@@ -82,8 +117,8 @@ function writeConfig(config: ChannelsConfig): void {
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
   } catch (error) {
-    console.error('[渠道管理] 写入配置文件失败:', error)
-    throw new Error('写入渠道配置失败')
+    console.error('[模型供应商] 写入配置文件失败:', error)
+    throw new Error('写入模型供应商配置失败')
   }
 }
 
@@ -99,7 +134,7 @@ function writeConfig(config: ChannelsConfig): void {
  */
 function encryptApiKey(plainKey: string): string {
   if (!safeStorage.isEncryptionAvailable()) {
-    console.warn('[渠道管理] safeStorage 加密不可用，将以明文存储')
+    console.warn('[模型供应商] safeStorage 加密不可用，将以明文存储')
     return plainKey
   }
 
@@ -123,15 +158,15 @@ function decryptKey(encryptedKey: string): string {
     const buffer = Buffer.from(encryptedKey, 'base64')
     return safeStorage.decryptString(buffer)
   } catch (error) {
-    console.error('[渠道管理] 解密 API Key 失败:', error)
+    console.error('[模型供应商] 解密 API Key 失败:', error)
     throw new Error('解密 API Key 失败')
   }
 }
 
 /**
- * 获取所有渠道
+ * 获取所有模型供应商
  *
- * 返回的渠道中 apiKey 保持加密状态。
+ * 返回的模型供应商中 apiKey 保持加密状态。
  */
 export function listChannels(): Channel[] {
   const config = readConfig()
@@ -139,9 +174,9 @@ export function listChannels(): Channel[] {
 }
 
 /**
- * 按 ID 获取渠道
+ * 按 ID 获取模型供应商
  *
- * 返回的渠道中 apiKey 保持加密状态。
+ * 返回的模型供应商中 apiKey 保持加密状态。
  */
 export function getChannelById(id: string): Channel | undefined {
   const config = readConfig()
@@ -149,10 +184,10 @@ export function getChannelById(id: string): Channel | undefined {
 }
 
 /**
- * 创建新渠道
+ * 创建新模型供应商
  *
- * @param input 渠道创建数据（apiKey 为明文，会自动加密）
- * @returns 创建后的渠道（apiKey 为加密态）
+ * @param input 模型供应商创建数据（apiKey 为明文，会自动加密）
+ * @returns 创建后的模型供应商（apiKey 为加密态）
  */
 export function createChannel(input: ChannelCreateInput): Channel {
   const config = readConfig()
@@ -173,23 +208,23 @@ export function createChannel(input: ChannelCreateInput): Channel {
   config.channels.push(channel)
   writeConfig(config)
 
-  console.log(`[渠道管理] 已创建渠道: ${channel.name} (${channel.id})`)
+  console.log(`[模型供应商] 已创建模型供应商: ${channel.name} (${channel.id})`)
   return channel
 }
 
 /**
- * 更新渠道
+ * 更新模型供应商
  *
- * @param id 渠道 ID
+ * @param id 模型供应商 ID
  * @param input 更新数据（apiKey 为明文，空字符串表示不更新）
- * @returns 更新后的渠道
+ * @returns 更新后的模型供应商
  */
 export function updateChannel(id: string, input: ChannelUpdateInput): Channel {
   const config = readConfig()
   const index = config.channels.findIndex((c) => c.id === id)
 
   if (index === -1) {
-    throw new Error(`渠道不存在: ${id}`)
+    throw new Error(`模型供应商不存在: ${id}`)
   }
 
   const existing = config.channels[index]
@@ -208,29 +243,29 @@ export function updateChannel(id: string, input: ChannelUpdateInput): Channel {
   config.channels[index] = updated
   writeConfig(config)
 
-  console.log(`[渠道管理] 已更新渠道: ${updated.name} (${updated.id})`)
+  console.log(`[模型供应商] 已更新模型供应商: ${updated.name} (${updated.id})`)
   return updated
 }
 
 /**
- * 删除渠道
+ * 删除模型供应商
  */
 export function deleteChannel(id: string): void {
   const config = readConfig()
   const index = config.channels.findIndex((c) => c.id === id)
 
   if (index === -1) {
-    throw new Error(`渠道不存在: ${id}`)
+    throw new Error(`模型供应商不存在: ${id}`)
   }
 
   const removed = config.channels.splice(index, 1)[0]
   writeConfig(config)
 
-  console.log(`[渠道管理] 已删除渠道: ${removed.name} (${removed.id})`)
+  console.log(`[模型供应商] 已删除模型供应商: ${removed.name} (${removed.id})`)
 }
 
 /**
- * 解密渠道的 API Key
+ * 解密模型供应商的 API Key
  *
  * 仅在用户需要查看时调用。
  */
@@ -239,14 +274,14 @@ export function decryptApiKey(channelId: string): string {
   const channel = config.channels.find((c) => c.id === channelId)
 
   if (!channel) {
-    throw new Error(`渠道不存在: ${channelId}`)
+    throw new Error(`模型供应商不存在: ${channelId}`)
   }
 
   return decryptKey(channel.apiKey)
 }
 
 /**
- * 测试渠道连接
+ * 测试模型供应商连接
  *
  * 向供应商的 API 发送简单请求，验证 API Key 和连接是否有效。
  */
@@ -255,7 +290,7 @@ export async function testChannel(channelId: string): Promise<ChannelTestResult>
   const channel = config.channels.find((c) => c.id === channelId)
 
   if (!channel) {
-    return { success: false, message: '渠道不存在' }
+    return { success: false, message: '模型供应商不存在' }
   }
 
   const apiKey = decryptKey(channel.apiKey)
@@ -372,10 +407,10 @@ async function testGoogle(baseUrl: string, apiKey: string, proxyUrl?: string): P
 // ===== 直接测试连接 =====
 
 /**
- * 直接测试连接（无需已保存渠道）
+ * 直接测试连接（无需已保存模型供应商）
  *
  * 使用传入的明文凭证直接向提供商发送测试请求。
- * 适用于创建/编辑渠道时用户在保存前先验证连接。
+ * 适用于创建/编辑模型供应商时用户在保存前先验证连接。
  */
 export async function testChannelDirect(input: FetchModelsInput): Promise<ChannelTestResult> {
   const proxyUrl = await getEffectiveProxyUrl()
@@ -409,7 +444,7 @@ export async function testChannelDirect(input: FetchModelsInput): Promise<Channe
 /**
  * 从供应商 API 拉取可用模型列表
  *
- * 直接使用传入的凭证（无需已保存渠道），支持创建渠道时预先拉取模型。
+ * 直接使用传入的凭证（无需已保存模型供应商），支持创建模型供应商时预先拉取模型。
  * 针对不同供应商使用不同的 API 端点和响应解析。
  */
 export async function fetchModels(input: FetchModelsInput): Promise<FetchModelsResult> {
@@ -435,7 +470,7 @@ export async function fetchModels(input: FetchModelsInput): Promise<FetchModelsR
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : '未知错误'
-    console.error('[渠道管理] 拉取模型列表失败:', error)
+    console.error('[模型供应商] 拉取模型列表失败:', error)
     return { success: false, message: `拉取模型失败: ${message}`, models: [] }
   }
 }

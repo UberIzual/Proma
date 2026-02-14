@@ -116,7 +116,7 @@ export interface ConversationMeta {
   title: string
   /** 默认使用的模型 ID */
   modelId?: string
-  /** 使用的渠道 ID */
+  /** 使用的模型供应商 ID */
   channelId?: string
   /** 上下文分隔线对应的消息 ID 列表 */
   contextDividers?: string[]
@@ -142,7 +142,7 @@ export interface ChatSendInput {
   userMessage: string
   /** 消息历史（用于上下文） */
   messageHistory: ChatMessage[]
-  /** 渠道 ID */
+  /** 模型供应商 ID */
   channelId: string
   /** 模型 ID */
   modelId: string
@@ -166,7 +166,7 @@ export interface ChatSendInput {
 export interface GenerateTitleInput {
   /** 用户消息内容（用于生成标题） */
   userMessage: string
-  /** 渠道 ID */
+  /** 模型供应商 ID */
   channelId: string
   /** 模型 ID */
   modelId: string
@@ -219,14 +219,14 @@ export interface StreamErrorEvent {
 // ===== 模型选项 =====
 
 /**
- * 模型选项（扁平化的渠道+模型组合）
+ * 模型选项（扁平化的模型供应商+模型组合）
  *
  * 用于渲染进程的模型选择器下拉列表
  */
 export interface ModelOption {
-  /** 渠道 ID */
+  /** 模型供应商 ID */
   channelId: string
-  /** 渠道名称 */
+  /** 模型供应商名称 */
   channelName: string
   /** 模型 ID */
   modelId: string
@@ -272,7 +272,7 @@ export const CHAT_IPC_CHANNELS = {
   UPDATE_TITLE: 'chat:update-title',
   /** 删除对话 */
   DELETE_CONVERSATION: 'chat:delete-conversation',
-  /** 更新对话使用的模型/渠道 */
+  /** 更新对话使用的模型/模型供应商 */
   UPDATE_MODEL: 'chat:update-conversation-model',
 
   // 消息发送

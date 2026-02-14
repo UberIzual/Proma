@@ -12,7 +12,7 @@ export interface Workspace {
 // 运行时相关类型
 export * from './runtime'
 
-// 渠道（AI 供应商）相关类型
+// 模型供应商（AI 供应商）相关类型
 export * from './channel'
 
 // 代理配置相关类型

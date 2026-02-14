@@ -2,7 +2,7 @@
  * Agent SDK 服务层
  *
  * 负责 Agent SDK 的调用编排：
- * - 获取渠道信息（API Key + Base URL）
+ * - 获取模型供应商信息（API Key + Base URL）
  * - 注入环境变量（ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL）
  * - 构建 SDK Options（pathToClaudeCodeExecutable + executable + env）
  * - 调用 query() 获取消息流
@@ -143,7 +143,7 @@ function ensureRipgrepAvailable(cliPath: string): void {
 interface SDKAssistantMessage {
   type: 'assistant'
   message: {
-    content: Array<{ type: string; id?: string; name?: string; input?: Record<string, unknown>; text?: string }>
+    content: Array<{ type: string; id?: string; name?: string; input?: Record<string, unknown>; text?: string; thinking?: string }>
     usage?: { input_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }
   }
   parent_tool_use_id: string | null
@@ -164,7 +164,7 @@ interface SDKStreamEvent {
   event: {
     type: string
     message?: { id?: string }
-    delta?: { type: string; text?: string; stop_reason?: string }
+    delta?: { type: string; text?: string; thinking?: string; stop_reason?: string }
     content_block?: { type: string; id: string; name: string; input?: Record<string, unknown> }
   }
   parent_tool_use_id: string | null
@@ -198,6 +198,7 @@ function convertSDKMessage(
   emittedToolStarts: Set<string>,
   activeParentTools: Set<string>,
   pendingText: { value: string | null },
+  pendingReasoning: { value: string | null },
   turnId: { value: string | null },
 ): AgentEvent[] {
   const events: AgentEvent[] = []
@@ -225,6 +226,14 @@ function convertSDKMessage(
         }
       }
 
+      // 提取思考内容
+      let thinkingContent = ''
+      for (const block of content) {
+        if (block.type === 'thinking' && 'thinking' in block) {
+          thinkingContent += block.thinking
+        }
+      }
+
       // 工具启动事件提取
       const sdkParentId = msg.parent_tool_use_id
       const toolStartEvents = extractToolStarts(
@@ -247,6 +256,9 @@ function convertSDKMessage(
 
       if (textContent) {
         pendingText.value = textContent
+      }
+      if (thinkingContent) {
+        pendingReasoning.value = thinkingContent
       }
       break
     }
@@ -277,6 +289,15 @@ function convertSDKMessage(
           })
           pendingText.value = null
         }
+        if (pendingReasoning.value) {
+          events.push({
+            type: 'thinking_complete',
+            text: pendingReasoning.value,
+            turnId: turnId.value || undefined,
+            parentToolUseId: msg.parent_tool_use_id || undefined,
+          })
+          pendingReasoning.value = null
+        }
       }
 
       // 流式文本增量
@@ -284,6 +305,16 @@ function convertSDKMessage(
         events.push({
           type: 'text_delta',
           text: streamEvent.delta.text || '',
+          turnId: turnId.value || undefined,
+          parentToolUseId: msg.parent_tool_use_id || undefined,
+        })
+      }
+
+      // 流式思考增量
+      if (streamEvent.type === 'content_block_delta' && streamEvent.delta?.type === 'thinking_delta') {
+        events.push({
+          type: 'thinking_delta',
+          text: streamEvent.delta.thinking || '',
           turnId: turnId.value || undefined,
           parentToolUseId: msg.parent_tool_use_id || undefined,
         })
@@ -460,12 +491,12 @@ export async function runAgent(
 ): Promise<void> {
   const { sessionId, userMessage, channelId, modelId, workspaceId } = input
 
-  // 1. 获取渠道信息并解密 API Key
+  // 1. 获取模型供应商信息并解密 API Key
   const channel = getChannelById(channelId)
   if (!channel) {
     webContents.send(AGENT_IPC_CHANNELS.STREAM_ERROR, {
       sessionId,
-      error: '渠道不存在',
+      error: '模型供应商不存在',
     })
     return
   }
@@ -495,12 +526,16 @@ export async function runAgent(
     // 确保不会残留上一次的 Base URL
     delete sdkEnv.ANTHROPIC_BASE_URL
   }
+
   // 代理配置：SDK 通过子进程运行，注入 HTTPS_PROXY 环境变量
   const proxyUrl = await getEffectiveProxyUrl()
   if (proxyUrl) {
     sdkEnv.HTTPS_PROXY = proxyUrl
     sdkEnv.HTTP_PROXY = proxyUrl
   }
+
+  // 禁用 SDK 命令注入检查
+  sdkEnv.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK = 'true'
 
   // 2.5 读取已有的 SDK session ID（用于 resume 衔接上下文）
   const sessionMeta = getAgentSessionMeta(sessionId)
@@ -524,12 +559,14 @@ export async function runAgent(
   const emittedToolStarts = new Set<string>()
   const activeParentTools = new Set<string>()
   const pendingText = { value: null as string | null }
+  const pendingReasoning = { value: null as string | null }
   const turnId = { value: null as string | null }
   // 上下文使用量追踪（参考 craft-agents-oss cachedContextWindow 模式）
   let cachedContextWindow: number | undefined
 
   // 累积文本用于持久化
   let accumulatedText = ''
+  let accumulatedReasoning = ''
   const accumulatedEvents: AgentEvent[] = []
   // SDK 确认的实际模型（从 system init 消息获取）
   let resolvedModel = modelId || 'claude-sonnet-4-5-20250929'
@@ -758,6 +795,7 @@ export async function runAgent(
         emittedToolStarts,
         activeParentTools,
         pendingText,
+        pendingReasoning,
         turnId,
       )
 
@@ -777,6 +815,9 @@ export async function runAgent(
         if (event.type === 'text_delta') {
           accumulatedText += event.text
         }
+        if (event.type === 'thinking_delta') {
+          accumulatedReasoning += event.text
+        }
         accumulatedEvents.push(event)
 
         // 推送给渲染进程
@@ -786,11 +827,12 @@ export async function runAgent(
     }
 
     // 9. 持久化 assistant 消息（包含完整文本和工具事件）
-    if (accumulatedText || accumulatedEvents.length > 0) {
+    if (accumulatedText || accumulatedReasoning || accumulatedEvents.length > 0) {
       const assistantMsg: AgentMessage = {
         id: randomUUID(),
         role: 'assistant',
         content: accumulatedText,
+        reasoning: accumulatedReasoning || undefined,
         createdAt: Date.now(),
         model: resolvedModel,
         events: accumulatedEvents,
@@ -814,11 +856,12 @@ export async function runAgent(
       console.log(`[Agent 服务] 会话 ${sessionId} 已被用户中止`)
 
       // 保存已累积的部分内容
-      if (accumulatedText || accumulatedEvents.length > 0) {
+      if (accumulatedText || accumulatedReasoning || accumulatedEvents.length > 0) {
         const partialMsg: AgentMessage = {
           id: randomUUID(),
           role: 'assistant',
           content: accumulatedText,
+          reasoning: accumulatedReasoning || undefined,
           createdAt: Date.now(),
           model: resolvedModel,
           events: accumulatedEvents,
@@ -830,14 +873,30 @@ export async function runAgent(
       return
     }
 
-    const errorMessage = error instanceof Error ? error.message : '未知错误'
+    const rawErrorMessage = error instanceof Error ? error.message : '未知错误'
     console.error(`[Agent 服务] 执行失败:`, error)
 
     // 构建包含 stderr 诊断信息的错误消息
     const stderrOutput = stderrChunks.join('').trim()
-    const detailedError = stderrOutput
-      ? `${errorMessage}\n\nstderr: ${stderrOutput.slice(0, 500)}`
-      : errorMessage
+
+    // 格式化错误消息，提供更友好的提示
+    let friendlyError = rawErrorMessage
+    if (rawErrorMessage.includes('Claude Code process exited with code 1')) {
+      friendlyError = 'Agent 执行失败（进程异常退出）'
+      if (stderrOutput) {
+        // 尝试从 stderr 提取更有用的错误信息
+        const errorMatch = stderrOutput.match(/error:\s*(.+)/i)
+        if (errorMatch) {
+          friendlyError += `: ${errorMatch[1]}`
+        }
+      }
+      // 添加排查建议
+      friendlyError += '\n\n可能的原因：\n• Bun 运行时未正确安装\n• API Key 无效或已过期\n• 工作区路径不存在或无权限\n• 网络连接问题'
+    }
+
+    const detailedError = stderrOutput && !rawErrorMessage.includes('Claude Code process exited with code 1')
+      ? `${friendlyError}\n\n诊断信息: ${stderrOutput.slice(0, 500)}`
+      : friendlyError
 
     // 如果是 resume 失败，清除 sdkSessionId 以便下次重新开始
     if (existingSdkSessionId) {
@@ -870,7 +929,7 @@ const DEFAULT_SESSION_TITLE = '新 Agent 会话'
 /**
  * 生成 Agent 会话标题
  *
- * 使用 Provider 适配器系统，支持 Anthropic / OpenAI / Google 等所有渠道。
+ * 使用 Provider 适配器系统，支持 Anthropic / OpenAI / Google 等所有模型供应商。
  * 任何错误返回 null，不影响主流程。
  */
 export async function generateAgentTitle(input: AgentGenerateTitleInput): Promise<string | null> {
@@ -880,7 +939,7 @@ export async function generateAgentTitle(input: AgentGenerateTitleInput): Promis
     const channels = listChannels()
     const channel = channels.find((c) => c.id === channelId)
     if (!channel) {
-      console.warn('[Agent 标题生成] 渠道不存在:', channelId)
+      console.warn('[Agent 标题生成] 模型供应商不存在:', channelId)
       return null
     }
 

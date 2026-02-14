@@ -107,7 +107,7 @@ bun run generate:icons    # 生成应用图标
 
 | 服务 | 职责 |
 |------|------|
-| `channel-manager.ts` | 渠道 CRUD、API Key AES-256-GCM 加密（Electron safeStorage）、连接测试、模型获取 |
+| `channel-manager.ts` | 模型供应商 CRUD、API Key AES-256-GCM 加密（Electron safeStorage）、连接测试、模型获取 |
 | `conversation-manager.ts` | 对话 CRUD、JSONL 消息存储、置顶、上下文分割 |
 | `chat-service.ts` | AI 流式调用编排、Provider 适配器集成、消息持久化、AbortController |
 | `agent-service.ts` | Agent SDK 调用编排、流式事件转换与推送、AbortController |
@@ -137,7 +137,7 @@ bun run generate:icons    # 生成应用图标
 | Atom 文件 | 管理的状态 |
 |-----------|-----------|
 | `chat-atoms.ts` | 对话列表、当前消息、流式状态（Map 结构支持多对话并行）、模型选择、上下文设置、并排模式、思考模式、待上传附件 |
-| `agent-atoms.ts` | Agent 会话列表、当前会话、流式状态（`AgentStreamState`）、工作区选择、渠道选择 |
+| `agent-atoms.ts` | Agent 会话列表、当前会话、流式状态（`AgentStreamState`）、工作区选择、默认供应商选择 |
 | `active-view.ts` | 主面板视图切换（'conversations' / 'settings'） |
 | `app-mode.ts` | 应用模式（Chat / Agent） |
 | `settings-tab.ts` | 设置面板当前标签页 |
@@ -149,8 +149,8 @@ bun run generate:icons    # 生成应用图标
 
 - **`app-shell/`**：三面板布局（LeftSidebar | NavigatorPanel | MainContentPanel），侧边栏含模式切换、置顶对话、日期分组列表、流式指示器
 - **`chat/`**：聊天核心 — ChatView（消息加载/流式订阅）、ChatHeader（模型选择/上下文设置）、ChatInput（Tiptap 富文本编辑器）、ChatMessages（消息列表/自动滚动）、ParallelChatMessages（并排模式）
-- **`agent/`**：Agent 模式 — AgentView（会话主视图）、AgentHeader（渠道/模型选择）、AgentMessages（消息列表 + 工具活动）、ToolActivityItem（工具调用展示）、WorkspaceSelector（工作区切换）
-- **`settings/`**：设置面板 — GeneralSettings（用户档案）、AppearanceSettings（主题）、ChannelSettings（渠道管理）、ChannelForm（Provider 配置）、AgentSettings（Agent 渠道/工作区/MCP）、McpServerForm（MCP 服务器配置）、AboutSettings（版本/更新）；含 `primitives/` 可复用表单组件
+- **`agent/`**：Agent 模式 — AgentView（会话主视图）、AgentHeader（模型供应商/模型选择）、AgentMessages（消息列表 + 工具活动）、ToolActivityItem（工具调用展示）、WorkspaceSelector（工作区切换）
+- **`settings/`**：设置面板 — GeneralSettings（用户档案）、AppearanceSettings（主题）、ChannelSettings（模型供应商）、ChannelForm（Provider 配置）、AgentSettings（Agent 默认供应商/工作区/MCP）、McpServerForm（MCP 服务器配置）、AboutSettings（版本/更新）；含 `primitives/` 可复用表单组件
 - **`file-browser/`**：文件浏览器 — FileBrowser（工作区文件树浏览）
 - **`ai-elements/`**：AI 展示组件 — Markdown 渲染、代码块、Mermaid 图、推理折叠、上下文分割线、富文本输入
 - **`ui/`**：ShadcnUI 组件（new-york 风格，CSS 变量主题）
@@ -159,7 +159,7 @@ bun run generate:icons    # 生成应用图标
 
 ```
 ~/.proma/
-├── channels.json           # 渠道配置（API Key 经 safeStorage 加密）
+├── channels.json           # 模型供应商配置（API Key 经 safeStorage 加密）
 ├── conversations.json      # 对话索引（元数据，轻量）
 ├── conversations/          # 消息存储
 │   └── {uuid}.jsonl        # 每对话一个 JSONL 文件，追加写入

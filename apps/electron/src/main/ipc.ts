@@ -106,7 +106,7 @@ import {
  * 注册的通道：
  * - runtime:get-status: 获取运行时状态
  * - git:get-repo-status: 获取指定目录的 Git 仓库状态
- * - channel:*: 渠道管理相关
+ * - channel:*: 模型供应商相关
  * - chat:*: 对话管理 + 消息发送 + 流式事件
  */
 export function registerIpcHandlers(): void {
@@ -152,9 +152,9 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // ===== 渠道管理相关 =====
+  // ===== 模型供应商相关 =====
 
-  // 获取所有渠道（apiKey 保持加密态）
+  // 获取所有模型供应商（apiKey 保持加密态）
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.LIST,
     async (): Promise<Channel[]> => {
@@ -162,7 +162,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 创建渠道
+  // 创建模型供应商
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.CREATE,
     async (_, input: ChannelCreateInput): Promise<Channel> => {
@@ -170,7 +170,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 更新渠道
+  // 更新模型供应商
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.UPDATE,
     async (_, id: string, input: ChannelUpdateInput): Promise<Channel> => {
@@ -178,7 +178,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 删除渠道
+  // 删除模型供应商
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.DELETE,
     async (_, id: string): Promise<void> => {
@@ -194,7 +194,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 测试渠道连接
+  // 测试模型供应商连接
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.TEST,
     async (_, channelId: string): Promise<ChannelTestResult> => {
@@ -202,7 +202,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 直接测试连接（无需已保存渠道，传入明文凭证）
+  // 直接测试连接（无需已保存模型供应商，传入明文凭证）
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.TEST_DIRECT,
     async (_, input: FetchModelsInput): Promise<ChannelTestResult> => {
@@ -210,7 +210,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 从供应商拉取可用模型列表（直接传入凭证，无需已保存渠道）
+  // 从供应商拉取可用模型列表（直接传入凭证，无需已保存模型供应商）
   ipcMain.handle(
     CHANNEL_IPC_CHANNELS.FETCH_MODELS,
     async (_, input: FetchModelsInput): Promise<FetchModelsResult> => {
@@ -260,7 +260,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // 更新对话使用的模型/渠道
+  // 更新对话使用的模型/模型供应商
   ipcMain.handle(
     CHAT_IPC_CHANNELS.UPDATE_MODEL,
     async (_, id: string, modelId: string, channelId: string): Promise<ConversationMeta> => {

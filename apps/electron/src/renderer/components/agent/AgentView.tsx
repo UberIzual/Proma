@@ -138,7 +138,7 @@ export function AgentView(): React.ReactElement {
     pendingFilesRef.current = pendingFiles
   }, [pendingFiles])
 
-  // 渠道已选但模型未选时，自动选择第一个可用模型
+  // 模型供应商已选但模型未选时，自动选择第一个可用模型
   React.useEffect(() => {
     if (!agentChannelId || agentModelId) return
 
@@ -715,23 +715,27 @@ export function AgentView(): React.ReactElement {
 
         {/* 错误提示 */}
         {agentError && (
-          <div className="mx-4 mb-2 px-4 py-2.5 rounded-lg bg-destructive/10 text-destructive text-sm flex items-center gap-2">
-            <AlertCircle className="size-4 shrink-0" />
-            <span className="flex-1 break-all">{agentError}</span>
-            <button
-              type="button"
-              className="shrink-0 p-0.5 rounded hover:bg-destructive/10 transition-colors"
-              onClick={() => {
-                if (!currentSessionId) return
-                setAgentStreamErrors((prev) => {
-                  const map = new Map(prev)
-                  map.delete(currentSessionId)
-                  return map
-                })
-              }}
-            >
-              <X className="size-3.5" />
-            </button>
+          <div className="mx-4 mb-2 px-4 py-2.5 rounded-lg bg-destructive/10 text-destructive text-sm">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="break-words whitespace-pre-wrap">{agentError}</div>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 p-0.5 rounded hover:bg-destructive/10 transition-colors mt-0.5"
+                onClick={() => {
+                  if (!currentSessionId) return
+                  setAgentStreamErrors((prev) => {
+                    const map = new Map(prev)
+                    map.delete(currentSessionId)
+                    return map
+                  })
+                }}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </div>
         )}
 
@@ -746,7 +750,7 @@ export function AgentView(): React.ReactElement {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* 无 Agent 渠道提示 */}
+            {/* 无 Agent 模型供应商提示 */}
             {!agentChannelId && (
               <div className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 dark:text-amber-400">
                 <Settings size={14} />

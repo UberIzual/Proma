@@ -41,6 +41,9 @@ export type AgentEvent =
   // 文本流式输出
   | { type: 'text_delta'; text: string; turnId?: string; parentToolUseId?: string }
   | { type: 'text_complete'; text: string; isIntermediate: boolean; turnId?: string; parentToolUseId?: string }
+  // 思考/推理流式输出
+  | { type: 'thinking_delta'; text: string; turnId?: string; parentToolUseId?: string }
+  | { type: 'thinking_complete'; text: string; turnId?: string; parentToolUseId?: string }
   // 工具执行
   | { type: 'tool_start'; toolName: string; toolUseId: string; input: Record<string, unknown>; intent?: string; displayName?: string; turnId?: string; parentToolUseId?: string }
   | { type: 'tool_result'; toolUseId: string; toolName?: string; result: string; isError: boolean; input?: Record<string, unknown>; turnId?: string; parentToolUseId?: string }
@@ -71,7 +74,7 @@ export interface AgentSessionMeta {
   id: string
   /** 会话标题 */
   title: string
-  /** 使用的渠道 ID */
+  /** 使用的模型供应商 ID */
   channelId?: string
   /** SDK 内部会话 ID（用于 resume 衔接上下文） */
   sdkSessionId?: string
@@ -99,6 +102,8 @@ export interface AgentMessage {
   createdAt: number
   /** 使用的模型 ID（assistant 消息） */
   model?: string
+  /** 思考/推理内容（assistant 消息） */
+  reasoning?: string
   /** 工具活动数据（agent 事件列表，用于回放工具调用） */
   events?: AgentEvent[]
 }
@@ -109,7 +114,7 @@ export interface AgentMessage {
 export interface AgentGenerateTitleInput {
   /** 用户第一条消息内容 */
   userMessage: string
-  /** 渠道 ID（用于获取 API Key） */
+  /** 模型供应商 ID（用于获取 API Key） */
   channelId: string
   /** 模型 ID */
   modelId: string
@@ -168,7 +173,7 @@ export interface AgentSendInput {
   sessionId: string
   /** 用户消息内容 */
   userMessage: string
-  /** 渠道 ID（用于获取 API Key） */
+  /** 模型供应商 ID（用于获取 API Key） */
   channelId: string
   /** 模型 ID */
   modelId?: string

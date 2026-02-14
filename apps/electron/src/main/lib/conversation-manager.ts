@@ -75,7 +75,7 @@ export function listConversations(): ConversationMeta[] {
  *
  * @param title 对话标题（默认"新对话"）
  * @param modelId 默认模型 ID
- * @param channelId 使用的渠道 ID
+ * @param channelId 使用的模型供应商 ID
  * @returns 创建的对话元数据
  */
 export function createConversation(

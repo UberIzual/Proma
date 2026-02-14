@@ -2,7 +2,7 @@
  * AI 聊天流式服务（Electron 编排层）
  *
  * 负责 Electron 特定的操作：
- * - 查找渠道、解密 API Key
+ * - 查找模型供应商、解密 API Key
  * - 管理 AbortController
  * - 调用 @proma/core 的 Provider 适配器系统
  * - 桥接 StreamEvent → webContents.send()
@@ -190,13 +190,13 @@ export async function sendMessage(
     thinkingEnabled,
   } = input
 
-  // 1. 查找渠道
+  // 1. 查找模型供应商
   const channels = listChannels()
   const channel = channels.find((c) => c.id === channelId)
   if (!channel) {
     webContents.send(CHAT_IPC_CHANNELS.STREAM_ERROR, {
       conversationId,
-      error: '渠道不存在',
+      error: '模型供应商不存在',
     })
     return
   }
@@ -395,7 +395,7 @@ const MAX_TITLE_LENGTH = 20
 /**
  * 调用 AI 生成对话标题
  *
- * 使用与聊天相同的渠道和模型，发送非流式请求，
+ * 使用与聊天相同的模型供应商和模型，发送非流式请求，
  * 让模型根据用户第一条消息生成简短标题。
  *
  * @param input 生成标题参数
@@ -404,11 +404,11 @@ const MAX_TITLE_LENGTH = 20
 export async function generateTitle(input: GenerateTitleInput): Promise<string | null> {
   const { userMessage, channelId, modelId } = input
 
-  // 查找渠道
+  // 查找模型供应商
   const channels = listChannels()
   const channel = channels.find((c) => c.id === channelId)
   if (!channel) {
-    console.warn('[标题生成] 渠道不存在:', channelId)
+    console.warn('[标题生成] 模型供应商不存在:', channelId)
     return null
   }
 
